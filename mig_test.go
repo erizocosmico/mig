@@ -9,6 +9,73 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+func TestRegister_NilFunc(t *testing.T) {
+	defer reset()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expecting a panic")
+		}
+	}()
+
+	Register(nil, nil)
+}
+
+func TestRegister_DuplicatedVersion(t *testing.T) {
+	defer reset()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expecting a panic")
+		}
+	}()
+
+	mockCaller("/01_foo.go")
+	Register(emptyMigrationFunc, emptyMigrationFunc)
+	Register(emptyMigrationFunc, emptyMigrationFunc)
+}
+
+func TestRegister_InvalidVersion(t *testing.T) {
+	defer reset()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expecting a panic")
+		}
+	}()
+
+	mockCaller("/0000_foo.go")
+	Register(emptyMigrationFunc, emptyMigrationFunc)
+}
+
+func TestRegister_InvalidFile(t *testing.T) {
+	defer reset()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expecting a panic")
+		}
+	}()
+
+	mockCaller("/foo.go")
+	Register(emptyMigrationFunc, emptyMigrationFunc)
+}
+
+func TestRegister_Valid(t *testing.T) {
+	defer reset()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("unexpected panic: %v", r)
+		}
+	}()
+
+	mockCaller("/0001_foo.go")
+	Register(emptyMigrationFunc, emptyMigrationFunc)
+
+	mockCaller("/0002_foo.go")
+	Register(emptyMigrationFunc, emptyMigrationFunc)
+
+	if len(migrations) != 2 {
+		t.Errorf("unexpected migrations:\n\t(GOT): %d\n\t(WNT): %d", len(migrations), 2)
+	}
+}
+
 func TestToVersion(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -49,7 +116,7 @@ func TestToVersion(t *testing.T) {
 }
 
 func TestToVersion_NotFound(t *testing.T) {
-	migrations = nil
+	defer reset()
 	db, cleanup := initTest(t, 0)
 	defer cleanup()
 
@@ -60,6 +127,7 @@ func TestToVersion_NotFound(t *testing.T) {
 }
 
 func TestDown(t *testing.T) {
+	defer reset()
 	migrations = generateMigrations(3)
 	db, cleanup := initTest(t, 3)
 	defer cleanup()
@@ -81,7 +149,7 @@ func TestDown(t *testing.T) {
 }
 
 func TestDown_NoMigrations(t *testing.T) {
-	migrations = nil
+	defer reset()
 	db, cleanup := initTest(t, 0)
 	defer cleanup()
 
@@ -92,6 +160,7 @@ func TestDown_NoMigrations(t *testing.T) {
 }
 
 func TestDown_ErrorMigration(t *testing.T) {
+	defer reset()
 	migrations = []migration{
 		{
 			2,
@@ -125,6 +194,7 @@ func TestDown_ErrorMigration(t *testing.T) {
 }
 
 func TestUp(t *testing.T) {
+	defer reset()
 	migrations = generateMigrations(3)
 	db, cleanup := initTest(t, 0)
 	defer cleanup()
@@ -146,6 +216,7 @@ func TestUp(t *testing.T) {
 }
 
 func TestUp_FromStartpoint(t *testing.T) {
+	defer reset()
 	migrations = generateMigrations(3)
 	db, cleanup := initTest(t, 1)
 	defer cleanup()
@@ -167,7 +238,7 @@ func TestUp_FromStartpoint(t *testing.T) {
 }
 
 func TestUp_NoMigrations(t *testing.T) {
-	migrations = nil
+	defer reset()
 	db, cleanup := initTest(t, 0)
 	defer cleanup()
 
@@ -178,6 +249,7 @@ func TestUp_NoMigrations(t *testing.T) {
 }
 
 func TestUp_ErrorMigration(t *testing.T) {
+	defer reset()
 	migrations = []migration{
 		{
 			1,
@@ -331,5 +403,19 @@ func initTest(t *testing.T, version int64) (*sql.DB, func()) {
 		if err := db.Close(); err != nil {
 			t.Fatalf("can't close db connection: %s", err)
 		}
+	}
+}
+
+func reset() {
+	migrations = nil
+}
+
+func emptyMigrationFunc(DB) error {
+	return nil
+}
+
+func mockCaller(file string) {
+	caller = func() string {
+		return file
 	}
 }

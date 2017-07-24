@@ -37,6 +37,11 @@ type DB interface {
 // migration, either an up or a down.
 type MigrationFunc func(DB) error
 
+var caller = func() string {
+	_, file, _, _ := runtime.Caller(2)
+	return file
+}
+
 // Register adds a new migration. Its order will depend on the name of the file
 // calling this function. For example, a file named 00001_initial_migration.go
 // will be executed before a migration defined in 000004_add_users_table.go.
@@ -46,14 +51,13 @@ func Register(up, down MigrationFunc) {
 		panic(fmt.Errorf("migrations cannot be nil in register"))
 	}
 
-	_, file, _, _ := runtime.Caller(1)
-	file = filepath.Base(file)
+	file := filepath.Base(caller())
 	v, err := versionFromFile(file)
 	if err != nil {
 		panic(err)
 	}
 
-	if v < 0 {
+	if v <= 0 {
 		panic(fmt.Errorf("version %d in file %q is not valid, it must be bigger than 0", v, file))
 	}
 
@@ -106,6 +110,7 @@ func Create(path, name string) (string, error) {
 
 	var migrations []migration
 	for _, m := range matches {
+		m = filepath.Base(m)
 		if v, err := versionFromFile(m); err == nil {
 			migrations = append(migrations, migration{version: v})
 		}

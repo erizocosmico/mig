@@ -21,6 +21,7 @@ func main() {
 	app.Version = "1.0.0"
 	app.Usage = "manages migrations for the mig library"
 	app.Commands = commands
+	app.Action = cli.ShowAppHelp
 
 	app.Run(os.Args)
 }
@@ -107,6 +108,10 @@ func scaffold(ctx *cli.Context) error {
 		logrus.Fatalf("provided `cmdfile` %q already exists", file)
 	}
 
+	if err := os.MkdirAll(filepath.Dir(file), 0755); err != nil {
+		logrus.Fatalf("unable to create directories: %s", err)
+	}
+
 	f, err := os.Create(file)
 	if err != nil {
 		logrus.Fatalf("error creating cmd file %q: %s", file, err)
@@ -128,6 +133,8 @@ func scaffold(ctx *cli.Context) error {
 		logrus.Fatalf("unable to write file at %q: %s", file, err)
 	}
 
+	logrus.Infof("successfully created command file at %q", file)
+
 	return nil
 }
 
@@ -146,7 +153,7 @@ func defaultPkg() (pkg string, err error) {
 
 	for _, d := range build.Default.SrcDirs() {
 		if strings.HasPrefix(wd, d) {
-			dir := strings.TrimPrefix(filepath.ToSlash(strings.Replace(d, wd, "", -1)), "/")
+			dir := strings.TrimPrefix(filepath.ToSlash(strings.Replace(wd, d, "", -1)), "/")
 			pkg = filepath.Join(dir, "migrations")
 
 			if fi, err := os.Stat(filepath.Join(wd, "migrations")); os.IsNotExist(err) {
@@ -171,7 +178,6 @@ func defaultPkg() (pkg string, err error) {
 const cmdfileTpl = `package main
 
 import (
-	"database/sql"
 	"os"
 
 	_ "%s"

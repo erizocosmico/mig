@@ -43,7 +43,7 @@ func Run(dbtype string, args []string) {
 var defaultFlags = []cli.Flag{
 	cli.StringFlag{
 		Name:  "url, u",
-		Usage: "url of the database e.g. `postgres://user:pass@0.0.0.0:5432/database`",
+		Usage: "url of the database e.g. postgres://user:pass@0.0.0.0:5432/database",
 	},
 	cli.BoolFlag{
 		Name:  "no-tx",
