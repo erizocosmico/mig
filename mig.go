@@ -97,6 +97,8 @@ func Create(path, name string) (string, error) {
 		if err := os.Mkdir(dir, 0755); err != nil {
 			return "", fmt.Errorf("unable to create migrations directory at %s: %s", dir, err)
 		}
+	} else if err != nil {
+		return "", fmt.Errorf("unexpected error checking directory: %s", err)
 	} else {
 		if !fi.IsDir() {
 			return "", fmt.Errorf("migrations directory path %s already exists but it's not a directory", dir)
@@ -239,14 +241,15 @@ func downTo(db *sql.DB, tx bool, oldVersion, target int64) (newVersion int64, er
 				return fmt.Errorf("error applying migration down %d: %s", newVersion, err)
 			}
 		}
+		newVersion--
 
 		return SetVersion(db, newVersion)
 	}
 
 	if tx {
-		return newVersion - 1, runTx(db, fn)
+		return newVersion, runTx(db, fn)
 	}
-	return newVersion - 1, fn(db)
+	return newVersion, fn(db)
 }
 
 func runTx(db *sql.DB, fn func(DB) error) (err error) {
@@ -352,7 +355,7 @@ func init() {
 			_, err := db.Exec("UP")
 			return err
 		},
-		func (db mig.DB) error {
+		func(db mig.DB) error {
 			_, err := db.Exec("DOWN")
 			return err
 		},

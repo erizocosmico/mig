@@ -183,7 +183,6 @@ import (
 	_ "%s"
 	_ "%s"
 	"github.com/erizocosmico/mig/manager"
-	"github.com/sirupsen/logrus"
 )
 
 func main() {

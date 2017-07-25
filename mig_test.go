@@ -3,11 +3,62 @@ package mig
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
 )
+
+func TestCreate(t *testing.T) {
+	tests := []struct {
+		name      string
+		dir       string
+		structure fileCreator
+		result    string
+		ok        bool
+	}{
+		{"no permissions to create dir", filepath.Join("no_perms", "foo"), dir("no_perms", 0555), "", false},
+		{"no permissions to check", filepath.Join("no_perms", "foo"), dir("no_perms", 0000), "", false},
+		{"dir is not a dir", "dir", file("dir"), "", false},
+		{"no perms to create migration", "dir", dir("dir", 0000), "", false},
+		{"create dir for migration", filepath.Join("dir", "foo"), dir("dir", 0777), "0001_foo.go", true},
+		{"create first migration", "dir", dir("dir", 0777), "0001_foo.go", true},
+		{"create non-first migration", "dir", dir("dir", 0777, file("0001_foo.go"), file("0002_foo.go")), "0003_foo.go", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir, err := ioutil.TempDir(os.TempDir(), "test-mig")
+			if err != nil {
+				t.Fatalf("unexpected error creating temp dir: %s", err)
+			}
+
+			defer func() {
+				if err := os.RemoveAll(dir); err != nil {
+					t.Fatalf("unable to remove tmp dir: %s", err)
+				}
+			}()
+
+			if err := tt.structure(dir); err != nil {
+				t.Fatalf("unexpected error creating structure for test: %s", err)
+			}
+
+			filename, err := Create(filepath.Join(dir, tt.dir), "foo")
+			if err != nil && tt.ok {
+				t.Errorf("unexpected error: %s", err)
+			} else if err == nil && !tt.ok {
+				t.Errorf("expecting error")
+			} else if tt.ok {
+				if filename != tt.result {
+					t.Errorf("unexpected result:\n\t(GOT): %s\n\t(WNT): %s", filename, tt.result)
+				}
+			}
+		})
+	}
+}
 
 func TestRegister_NilFunc(t *testing.T) {
 	defer reset()
@@ -417,5 +468,30 @@ func emptyMigrationFunc(DB) error {
 func mockCaller(file string) {
 	caller = func() string {
 		return file
+	}
+}
+
+type fileCreator func(base string) error
+
+func dir(name string, perms os.FileMode, children ...fileCreator) fileCreator {
+	return func(base string) error {
+		dir := filepath.Join(base, name)
+		if err := os.MkdirAll(dir, perms); err != nil {
+			return err
+		}
+
+		for _, c := range children {
+			if err := c(dir); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+}
+
+func file(name string) fileCreator {
+	return func(base string) error {
+		return ioutil.WriteFile(filepath.Join(base, name), nil, 0755)
 	}
 }
