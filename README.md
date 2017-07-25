@@ -10,7 +10,7 @@ Dead simple Go migration tool and library that keeps your migrations inside a bi
 go get -v github.com/erizocosmico/mig/...
 ```
 
-## Get started
+## Get started
 
 First thing we should do is the following:
 
