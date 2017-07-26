@@ -42,6 +42,27 @@ That command will add new migration files inside the `migrations` directory.
 
 You can edit them and place your migrations. It's Go code, so you can do whatever thing you want in there.
 
+The migration files generated will look like this:
+
+```go
+package migrations
+
+import "github.com/erizocosmico/mig"
+
+func main() {
+        mig.Register(
+                func(db mig.DB) error {
+                        // your up code
+                },
+                func(db mig.DB) error {
+                        // your down code
+                },
+        )
+}
+```
+
+You will be thinking "do I have to make all the execs and if err != nil by hand?". No! `mig`'s got you covered! There are some utility functions [`mig.ExecAll`](https://godoc.org/github.com/erizocosmico/mig#ExecAll) and [`mig.DropAll`](https://godoc.org/github.com/erizocosmico/mig#DropAll) that should cover almost all your use cases. Check them out in the documentation.
+
 Now, to execute you can run the generated command or build it and use it as a binary.
 
 ```
